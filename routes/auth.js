@@ -1,64 +1,46 @@
 var express = require('express');
 var router = express.Router();
-let userControllers = require('../controllers/users')
-let { check_authentication } = require("../utils/check_auth")
-let jwt = require('jsonwebtoken');
-let constants = require('../utils/constants')
+let userControllers = require('../controllers/user');
+let { check_authentication } = require("../utils/check_auth");
 
-router.post('/login', async function (req, res, next) {
+// Đăng nhập
+router.post('/login', async function(req, res) {
     try {
-        let username = req.body.username;
-        let password = req.body.password;
-        let result = await userControllers.checkLogin(username, password);
-        res.status(200).send({
-            success: true,
-            data: jwt.sign({
-                id: result,
-                expireIn: (new Date(Date.now() + 3600 * 1000)).getTime()
-            }, constants.SECRET_KEY)
-        })
+        let result = await userControllers.login(req.body.username, req.body.password);
+        res.status(200).send({ success: true, data: result });
     } catch (error) {
-        next(error)
-    }
-});
-router.post('/signup', async function (req, res, next) {
-    try {
-        let username = req.body.username;
-        let password = req.body.password;
-        let email = req.body.email;
-        let result = await userControllers.createAnUser(username, password,
-            email, 'user');
-        res.status(200).send({
-            success: true,
-            data: result
-        })
-    } catch (error) {
-        next(error)
-    }
-});
-router.get('/me', check_authentication, async function (req, res, next) {
-    try {
-        res.send({
-            success: true,
-            data: req.user
-        });
-    } catch (error) {
-        next(error)
-    }
-});
-router.post('/changepassword',check_authentication, async function (req, res, next) {
-    try {
-        let oldpassword = req.body.oldpassword;
-        let newpassword = req.body.newpassword;
-        let user = userControllers.changePassword(req.user,oldpassword,newpassword);
-        res.send({
-            success: true,
-            data: user
-        });
-        
-    } catch (error) {
-        next(error)
+        res.status(401).send({ success: false, message: error.message });
     }
 });
 
-module.exports = router
+// Đăng ký
+router.post('/register', async function(req, res) {
+    try {
+        let newUser = await userControllers.register(req.body.username, req.body.password, req.body.email);
+        res.status(200).send({ success: true, data: newUser });
+    } catch (error) {
+        res.status(400).send({ success: false, message: error.message });
+    }
+});
+
+// Lấy thông tin người dùng đang đăng nhập
+router.get('/me', check_authentication, async function(req, res) {
+    try {
+        let user = await userControllers.getUserById(req.user.id);
+        res.status(200).send({ success: true, data: user });
+    } catch (error) {
+        res.status(404).send({ success: false, message: error.message });
+    }
+});
+
+// Đổi mật khẩu
+router.put('/changepassword', check_authentication, async function(req, res) {
+    try {
+        let result = await userControllers.changePassword(req.user.id, req.body.oldPassword, req.body.newPassword);
+        res.status(200).send({ success: true, message: "Đổi mật khẩu thành công" });
+    } catch (error) {
+        res.status(400).send({ success: false, message: error.message });
+    }
+});
+
+module.exports = router;
